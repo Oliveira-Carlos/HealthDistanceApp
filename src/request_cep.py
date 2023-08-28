@@ -14,31 +14,26 @@ def get_coordinates(address):
 
 
 # Viacep
-cep = '62250000'
+cep = '54505560'
 
-link = f'https://viacep.com.br/ws/CE/Ipu/rua 1/json/'
+link = f'https://viacep.com.br/ws/{cep}/json/'
 
 try:
     req_cep = requests.get(link)
     data = req_cep.json()
 
-    if isinstance(data, list) and len(data) > 0:
-        # A API retorna uma lista, usamos o primeiro item da lista
-        first_item = data[0]
-        cidade = first_item.get('localidade', '')
-        estado = first_item.get('uf', '')
-        if cidade and estado:
-            endereco = f"{cidade}, {estado}"  # Ordem correta: "cidade, estado"
-            latitude, longitude = get_coordinates(endereco)
-            if latitude is not None and longitude is not None:
-                print(f"Coordenadas de {cidade}, {estado}:")
-                print(f"Latitude: {latitude}")
-                print(f"Longitude: {longitude}")
-            else:
-                print("Não foi possível obter as coordenadas do endereço.")
+    cidade = data.get('localidade', '')  # 'localidade' é a cidade
+    estado = data.get('uf', '')          # 'uf' é o estado
+    if cidade and estado:
+        endereco = f"{cidade}, {estado}"  # Ordem correta: "cidade, estado"
+        latitude, longitude = get_coordinates(endereco)
+        if latitude is not None and longitude is not None:
+            print(f"Coordenadas de {cidade}, {estado}:")
+            print(f"Latitude: {latitude}")
+            print(f"Longitude: {longitude}")
         else:
-            print("Dados incompletos na resposta da API.")
+            print("Não foi possível obter as coordenadas do endereço.")
     else:
-        print("Resposta da API não está no formato esperado ou está vazia.")
+        print("Dados incompletos na resposta da API.")
 except requests.exceptions.RequestException as e:
     print(f"Erro de requisição: {e}")
