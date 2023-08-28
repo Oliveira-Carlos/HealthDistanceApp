@@ -6,17 +6,18 @@ raw_data_folder = "database/raw_data"
 clean_data_folder = "database/clean_data"
 
 # Nome dos arquivos
-raw_filename = os.path.join(raw_data_folder, "municipios.csv")
-clean_filename = os.path.join(clean_data_folder, "municipios_clean.csv")
+raw_filename = os.path.join(raw_data_folder, "leitos_sus_2023.csv")
+clean_filename = os.path.join(clean_data_folder, "leitos_sus_2023_clean.csv")
 
-# Carregar o arquivo CSV em um DataFrame
-df = pd.read_csv(raw_filename, sep=',', encoding='utf-8')
+# Ler o arquivo CSV com a codificação ISO-8859-1
+df = pd.read_csv(raw_filename, sep=',', encoding='iso-8859-1')
 
-# Selecionar apenas as colunas "nome", "latitude" e "longitude"
-selected_columns = ["nome", "latitude", "longitude"]
-clean_df = df[selected_columns]
+# Selecionar apenas as colunas necessárias
+columns_to_keep = ['UF', 'MUNICIPIO',
+                   'NOME_ESTABELECIMENTO', 'DS_TIPO_UNIDADE', 'NO_LOGRADOURO', 'NU_ENDERECO', 'NO_BAIRRO', 'CO_CEP', 'NU_TELEFONE']
+df_cleaned = df[columns_to_keep]
 
 # Salvar o DataFrame limpo em um novo arquivo CSV
-clean_df.to_csv(clean_filename, index=False)
+df_cleaned.to_csv(clean_filename, index=False, sep=';', encoding='utf-8')
 
-print(f"Dados limpos salvos em {clean_filename}")
+print(f"Arquivo {clean_filename} salvo com sucesso.")
