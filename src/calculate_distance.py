@@ -1,4 +1,5 @@
 import math
+from src.request_cep import CEPRequester
 
 
 def haversine_distance(coord1, coord2):
@@ -12,3 +13,30 @@ def haversine_distance(coord1, coord2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     distance = radius * c
     return distance
+
+
+def find_closest_locations(user_coordinates, locations):
+    # Criar uma instância da classe CEPRequester
+    cep_requester = CEPRequester()
+
+    # Calcula a distância entre o usuário e todas as localidades
+    distances = []
+    for location in locations:
+        location_coordinates = (location['latitude'], location['longitude'])
+
+        # Obter coordenadas a partir do CEP se não estiverem disponíveis
+        if None in location_coordinates:
+            location_coordinates = cep_requester.get_coordinates(
+                location['cep'])
+
+        # Calcular a distância se as coordenadas estiverem disponíveis
+        if None not in location_coordinates:
+            distance = haversine_distance(
+                user_coordinates, location_coordinates)
+            distances.append((location, distance))
+
+    # Classifica as localidades com base na distância
+    distances.sort(key=lambda x: x[1])
+
+    # Retorna as 10 localidades mais próximas
+    return distances[:10]
