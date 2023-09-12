@@ -28,13 +28,16 @@ Os dados utilizados neste projeto foram obtidos a partir da [Fonte de Dados de S
 1. ```bash
    pip install -r requirements.txt
    ```
+1. ```bash
+   python run database/insert_data.py
+   ```
 
-### !! Daqui para baixo ainda em produção
+### Executar script pricipal do app
 
-2. Execute o projeto com o seguinte comando:
+1. Execute o projeto com o seguinte comando:
 
     ```bash
     python main.py
     ```
 
-3. O projeto irá calcular as distâncias entre unidades de saúde e fornecer os resultados.
+2. O projeto irá calcular as distâncias entre unidades de saúde e fornecer os resultados.
