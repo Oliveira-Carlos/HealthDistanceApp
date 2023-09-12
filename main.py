@@ -10,8 +10,13 @@ load_dotenv()
 # Solicitar ao usuário que insira o CEP
 cep = input("Digite o CEP: ")
 
-# Extrair os três primeiros dígitos do CEP do usuário
-user_prefix = cep[:2]
+# Inicialize o geocodificador para obter coordenadas do CEP do usuário
+user_geocoder = Nominatim(user_agent="myGeocoder")
+user_location = user_geocoder.geocode(cep)
+if user_location:
+    user_lat, user_lng = user_location.latitude, user_location.longitude
+else:
+    print("Não foi possível encontrar coordenadas para o CEP inserido.")
 
 # Criar uma conexão com o banco de dados
 connection = psycopg2.connect(
@@ -25,51 +30,68 @@ connection = psycopg2.connect(
 # Criar um cursor
 cur = connection.cursor()
 
-# Consulta SQL para selecionar todos os CEPs com os três primeiros dígitos iguais
-query = """
-    SELECT cep, municipio, nome_estabelecimento, bairro, logradouro, numero, telefone
-    FROM unidades_saude
-    WHERE LEFT(cep, 2) = %s;
-"""
+# Extrair os primeiros 5, 4, 3, ... dígitos do CEP do usuário e procurar no banco de dados
+cep_prefix = cep[:5]
+found_results = False  # Variável para rastrear se resultados foram encontrados
 
-# Execute a consulta SQL usando psycopg2
-cur.execute(query, (user_prefix,))
+while cep_prefix:
+    # Consulta SQL para selecionar todos os CEPs com os dígitos iguais ao prefixo
+    query = """
+        SELECT cep, municipio, nome_estabelecimento, bairro, logradouro, numero, telefone
+        FROM unidades_saude
+        WHERE LEFT(cep, %s) = %s;
+    """
 
-# Recupere todos os CEPs com os três primeiros dígitos iguais
-ceps_with_prefix = cur.fetchall()
+    # Execute a consulta SQL usando psycopg2
+    cur.execute(query, (len(cep_prefix), cep_prefix))
 
-# Se houver candidatos, calcule as distâncias
-if ceps_with_prefix:
-    # Inicialize o geocodificador
-    geolocator = Nominatim(user_agent="myGeocoder")
+    # Recupere todos os CEPs com os dígitos iguais ao prefixo
+    ceps_with_prefix = cur.fetchall()
 
-    # Lista para armazenar as informações dos CEPs mais próximos
-    closest_ceps = []
+    # Se houver candidatos, calcule as distâncias
+    if ceps_with_prefix:
+        # Lista para armazenar as informações dos CEPs mais próximos
+        closest_ceps = []
 
-    # Obtenha as coordenadas para cada CEP e suas informações
-    for cep_info in ceps_with_prefix:
-        cep_candidate = cep_info[0]
-        location = geolocator.geocode(cep_candidate)
-        if location:
-            coordinates = (location.latitude, location.longitude)
-            closest_ceps.append((cep_candidate, coordinates, *cep_info[1:]))
+        # Obtenha as coordenadas e informações para cada CEP
+        for cep_info in ceps_with_prefix:
+            cep_candidate = cep_info[0]
+            location = user_geocoder.geocode(cep_candidate)
 
-    # Agora você tem a lista dos CEPs com coordenadas e informações
-
-    # Obtenha as coordenadas do CEP do usuário
-    user_geocoder = Nominatim(user_agent="myGeocoder")
-    user_location = user_geocoder.geocode(cep)
-
-    if user_location:
-        user_lat, user_lng = user_location.latitude, user_location.longitude
+            # Verifique se a localização foi encontrada
+            if location:
+                coordinates = (location.latitude, location.longitude)
+                closest_ceps.append(
+                    (cep_candidate, coordinates, *cep_info[1:]))
+            else:
+                # Se não encontrou as coordenadas pelo CEP, tente pelo endereço
+                # Concatena todas as informações de endereço
+                address = ", ".join(cep_info[1:])
+                location = user_geocoder.geocode(address)
+                if location:
+                    coordinates = (location.latitude, location.longitude)
+                    closest_ceps.append(
+                        (cep_candidate, coordinates, *cep_info[1:]))
+                else:
+                    print(
+                        f"Coordenadas não encontradas para CEP ou endereço: {cep_candidate} - {address}")
+                    closest_ceps.append((cep_candidate, None, *cep_info[1:]))
 
         # Calcule as distâncias e classifique-as
         candidate_distances = []
         for candidate_cep, candidate_coordinates, *candidate_info in closest_ceps:
-            distance = haversine_distance(
-                (user_lat, user_lng), candidate_coordinates)
-            candidate_distances.append(
-                (candidate_cep, distance, *candidate_info))
+            if candidate_coordinates:
+                distance = haversine_distance(
+                    (user_lat, user_lng), candidate_coordinates)
+                candidate_distances.append(
+                    (candidate_cep, distance, *candidate_info))
+            else:
+                candidate_distances.append(
+                    (candidate_cep, None, *candidate_info))
+
+        # Remova os candidatos que não têm coordenadas
+        candidate_distances = [
+            c for c in candidate_distances if c[1] is not None]
 
         candidate_distances.sort(key=lambda x: x[1])
 
@@ -84,6 +106,16 @@ if ceps_with_prefix:
             print(f"Número: {candidate_info[4]}")
             print(f"Telefone: {candidate_info[5]}")
             print("---------")
+
+        found_results = True  # Resultados encontrados
+        break  # Saia do loop, pois encontrou resultados
+    else:
+        # Remova o último dígito do prefixo e continue a busca
+        cep_prefix = cep_prefix[:-1]
+
+# Mensagem para o caso de não encontrar resultados
+if not found_results:
+    print("Não foram encontrados resultados para nenhum CEP semelhante.")
 
 # Feche o cursor e a conexão
 cur.close()
